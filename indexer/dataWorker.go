@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -112,6 +113,75 @@ func DataParcer(base_path string, limit int) string {
 	return result
 }
 
+func DataParserV2(base_path string, limit int) string {
+	var result string
+	files, err := os.ReadDir(base_path) //dirs of all users
+	check_error(err)
+
+	//========================================
+	var i int
+	for _, file := range files {
+		if file.IsDir() {
+			path := base_path + "/" + file.Name()
+
+			email_dirs := getListFiles(path)
+
+			for _, email_dir := range email_dirs {
+				emails_files_path := path + "/" + email_dir.Name()
+				emails_files := getListFiles(emails_files_path)
+
+				for _, email_file := range emails_files {
+					//===============================================================================
+					email_content := getEmailFileString(emails_files_path + "/" + email_file.Name())
+
+					mail := DataRegexParcer(email_content)
+
+					jsonStr, err := json.Marshal(mail)
+					if err != nil {
+						log.Fatal(err)
+					}
+					//fmt.Println(string(jsonStr))
+					result += `{ "index" : { "_index" : "mails" } }` + "\n" + string(jsonStr) + "\n"
+					if i == limit-1 {
+						return result
+					}
+					i++
+				}
+			}
+		}
+	}
+	return result
+}
+
+func DataRegexParcer(str string) map[string]string {
+	result := make(map[string]string)
+	mailParts := strings.Split(str, "\n\n")
+	header := mailParts[0]
+	var content string
+	if len(mailParts) > 1 {
+		content = mailParts[1]
+	}
+
+	var re_key = regexp.MustCompile(`(?m)^.*:\s`)
+	var keys = re_key.FindAllString(header, -1)
+
+	var re_value = regexp.MustCompile(`(?m):.*$`)
+	var values = re_value.FindAllString(header, -1)
+
+	for i, match := range keys {
+		var key = strings.ToLower(match[:len(match)-2])
+		if len(values[i]) > 2 {
+			result[key] = values[i][2:]
+		} else {
+			result[key] = ""
+		}
+	}
+	result["content"] = content
+	//strJson, _ := json.Marshal(result)
+
+	return result
+}
+
 func send(method, url, body, auth string) (*http.Response, error) {
 	client := &http.Client{
 		Timeout: time.Second * 10,
@@ -131,12 +201,19 @@ func send(method, url, body, auth string) (*http.Response, error) {
 	return response, nil
 }
 
-func loadNewData(path, auth string, limit int) {
+type ParcerFunc func(base_path string, limit int) string
+
+// ServeHTTP calls f(w, r).
+func (f ParcerFunc) ParcerMail(base_path string, limit int) string {
+	return f(base_path, limit)
+}
+
+func loadNewData(path, auth string, limit int, parcer ParcerFunc) {
 	if path == "" {
 		log.Fatal(errors.New("must pass path argument"))
 	} else {
 		//base_path := "/home/juancho/Programming/GoProjects/enron_mail_20110402/maildir"
-		str := DataParcer(path, limit)
+		str := parcer(path, limit)
 		//err := os.WriteFile("mails.ndjson", []byte(str), 0644)
 		//check_error(err)
 

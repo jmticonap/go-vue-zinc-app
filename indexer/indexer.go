@@ -1,8 +1,6 @@
 package main
 
 import (
-	// "strings"
-
 	"flag"
 	"fmt"
 	"log"
@@ -27,16 +25,10 @@ func main() {
 	flag.Parse()
 
 	if newData {
-		loadNewData(path, auth, int(limit))
+		loadNewData(path, auth, int(limit), DataParserV2)
 	}
 
 	port := os.Getenv("PORT")
-
-	if port == "" {
-		port = "8081"
-	}
-
-	log.Printf("Server is running\n\thttp://localhost:%s/debug", port)
 
 	router := chi.NewRouter()
 
@@ -45,11 +37,22 @@ func main() {
 
 	router.Mount("/debug", middleware.Profiler())
 
-	router.Get("/new_data", func(w http.ResponseWriter, r *http.Request) {
+	router.Get("/new_data_v1", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("loading data...")
-		loadNewData(path, auth, int(limit))
+		loadNewData(path, auth, int(limit), DataParcer)
 		fmt.Println("data loaded.")
 	})
+
+	router.Get("/new_data_v2", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("loading data...")
+		loadNewData(path, auth, int(limit), DataParserV2)
+		fmt.Println("data loaded.")
+	})
+
+	if port == "" {
+		port = "8081"
+	}
+	log.Printf("Server is running\n\thttp://localhost:%s/debug", port)
 
 	log.Fatal(http.ListenAndServe(":"+port, router))
 }
