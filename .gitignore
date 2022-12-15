@@ -25,3 +25,5 @@ DS_Store
 
 ./indexer/indexer
 ./indexer/profile_*
+./vue-web-cli/.eslintrc.json
+
