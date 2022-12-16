@@ -23,7 +23,7 @@ DS_Store
 *.sln
 *.sw?
 
-./indexer/indexer
-./indexer/profile_*
-./vue-web-cli/.eslintrc.json
-
+indexer/indexer
+indexer/profile_*
+vue-web-cli/.eslintrc.json
+vue-web-cli/data/*

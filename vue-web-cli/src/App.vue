@@ -1,32 +1,86 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
-import { XMarkIcon, ChevronDoubleLeftIcon } from '@heroicons/vue/24/outline'
+import { XMarkIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon } from '@heroicons/vue/24/outline'
 import { searchEmail } from './services/EmailService'
 
-const open = ref(false)
+const open = ref(true)
 const search = ref("")
+const lastSearch = ref("")
 const emails = ref([])
+const emailsTotal = ref(1)
+const currentPage = ref(1)
 const selectedEmailID = ref('')
 const selectedEmailInfo = ref(undefined)
 
 const onSearch = async evt => {
-  emails.value = await searchEmail(search.value)
-  open.value = true
+  try {
+    if (lastSearch.value != search.value) {
+      emailsTotal.value = 1
+      currentPage.value = 1
+    }
+    const { _emails, _total } = await searchEmail(
+      search.value,
+      {
+        from: currentPage.value,
+        size: 20,
+        count: emailsTotal.value
+      }
+    )
+    lastSearch.value = search.value
+
+    //removing unuseful characters
+    for (let mail of _emails) {
+      for (let d in mail._source) {
+        mail._source[d] = mail._source[d].trim()
+      }
+    }
+
+    emails.value = _emails
+    emailsTotal.value = _total
+
+    open.value = true
+  } catch (error) {
+    alert(error)
+  }
 }
 
 const selectRow = evt => {
-  selectedEmailID.value = evt.target.id
   selectedEmailInfo.value = emails.value.find(email => email._id == selectedEmailID.value)
+  if (!selectedEmailInfo.value._source.content)
+    selectedEmailInfo.value._source.content = "---NO CONTENT HERE---"
 
   open.value = false
 }
+
+const goBackPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value--
+    onSearch()
+  }
+}
+
+const goForwarePage = () => {
+  if (currentPage.value * 20 < emailsTotal.value) {
+    currentPage.value++
+    onSearch()
+  }
+}
+
+onMounted(async () => {
+  await onSearch(undefined, {
+    from: currentPage.value,
+    size: 20,
+    count: emailsTotal.value
+  })
+})
+
 </script>
 
 <template>
   <header>
-    <nav class="flex flex-row flex-nowrap justify-center items-center p-2 px-4 min-w-full">
-      <form @submit.default="onSearch" class="flex flex-row justify-center w-full">
+    <nav class="fixed py-4 bg-white flex flex-row flex-nowrap justify-center items-center p-2 px-4 min-w-full top-nav-shadow">
+      <form @submit.prevent="onSearch" class="flex flex-row justify-center w-full">
         <ul class="flex flex-row flex-nowrap gap-1 w-10/12">
           <li class="w-full">
             <input v-model="search" class="border-gray-900 border-solid border rounded-md p-1 w-full" type="search"
@@ -42,9 +96,9 @@ const selectRow = evt => {
 
     </nav>
   </header>
-  <div class="p-8">
+  <div class="p-8 pt-20">
     <pre>
-      {{ selectedEmailInfo?._source.Content}}
+      {{ selectedEmailInfo?._source.content }}
     </pre>
   </div>
   <TransitionRoot as="template" :show="open">
@@ -80,64 +134,61 @@ const selectRow = evt => {
                   <div class="relative mt-6 flex-1 px-4 sm:px-6">
                     <!-- Replace with your content -->
                     <div class="absolute inset-0 px-4 sm:px-6">
-                      <div class="h-full border-2 border-dashed border-gray-200" aria-hidden="true">
-                        <!--
-                        <table class="min-w-full">
-                          
-                          <thead class="bg-slate-50 border-b border-slate-200">
-                            <tr>
-                              <th class="my-colum px-6 py-3 text-left text-sm font-medium text-slate-900">Subject</th>
-                              <th class="my-colum px-6 py-3 text-left text-sm font-medium text-slate-900">From</th>
-                              <th class="my-colum px-6 py-3 text-left text-sm font-medium text-slate-900">To</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr @click.stop="selectRow" v-for="email in emails" class="odd:bg-white even:bg-slate-50">
-                              <td v-bind:id="email._id"
-                                class="my-colum px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
-                                {{ email._source['Subject'] }}
-                              </td>
-                              <td class="my-colum px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
-                                {{ email._source['From'] }}
-                              </td>
-                              <td class="my-colum px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
-                                {{ email._source['To'] }}
-                              </td>
-
-                            </tr>
-
-                          </tbody>
-                        </table>
-                      -->
+                      <div class="overflow-y-auto h-full border-2 border-dashed border-gray-200" aria-hidden="true">
+                        <!--  -->
                         <table class="min-w-full">
                           <thead class="bg-slate-400 border-b border-slate-200">
                             <tr>
-                              <th class="my-colum px-6 py-3 text-left text-sm font-medium text-slate-900">Subject</th>
-                              <th class="my-colum px-6 py-3 text-left text-sm font-medium text-slate-900">From</th>
-                              <th class="my-colum px-6 py-3 text-left text-sm font-medium text-slate-900">To</th>
+                              <th class="px-6 py-3 text-left text-sm font-medium text-slate-900">Subject</th>
+                              <th class="px-6 py-3 text-left text-sm font-medium text-slate-900">From</th>
+                              <th class="px-6 py-3 text-left text-sm font-medium text-slate-900">To</th>
                             </tr>
                           </thead>
                           <tbody>
-                            <tr @click.stop="selectRow" v-for="email in emails"
+                            <tr @click.stop="() => { selectedEmailID = email._id; selectRow() }" v-for="email in emails"
                               class="odd:bg-white even:bg-slate-200 hover:bg-yellow-200">
-                              <td v-bind:id="email._id">
-                                {{ email._source['Subject'] }}
+                              <td class="cell-border">
+                                {{ email._source['subject']
+                                    ? email._source['subject']
+                                    : '---none---'
+                                }}
                               </td>
-                              <td>
-                                {{ email._source['From'] }}
+                              <td class="cell-border">
+                                {{ email._source['from'] || '---none---' }}
                               </td>
-                              <td>
-                                {{ email._source['To'] }}
+                              <td class="cell-border">
+                                {{ email._source['to'] || '---none---' }}
                               </td>
                             </tr>
                           </tbody>
                         </table>
+
                       </div>
-                      <!--
-                        <Paginator />
-                      -->
+
                     </div>
-                    <!-- /End replace -->
+                  </div>
+
+                  <!--  -->
+                  <div class="flex flex-row p-4 justify-center">
+                    <ul class="flex flex-row gap-4">
+                      <li>
+                        <button @click="goBackPage"
+                          class="rounded-md bg-sky-500 hover:bg-sky-700 active:bg-sky-700 focus:outline-none focus:ring focus:ring-sky-300 px-5 py-2 text-sm leading-5  font-semibold text-white">
+                          <ChevronDoubleLeftIcon class="h-6 w-6" aria-hidden="true" />
+                        </button>
+                      </li>
+                      <li>
+                        <h2>
+                          {{ currentPage }} / {{ Math.ceil(emailsTotal / 20) }}
+                        </h2>
+                      </li>
+                      <li>
+                        <button @click="goForwarePage"
+                          class="rounded-md bg-sky-500 hover:bg-sky-700 active:bg-sky-700 focus:outline-none focus:ring focus:ring-sky-300 px-5 py-2 text-sm leading-5  font-semibold text-white">
+                          <ChevronDoubleRightIcon class="h-6 w-6" aria-hidden="true" />
+                        </button>
+                      </li>
+                    </ul>
                   </div>
                 </div>
               </DialogPanel>
@@ -147,7 +198,7 @@ const selectRow = evt => {
       </div>
     </Dialog>
   </TransitionRoot>
-  <div class="bg-red-700 relative top_button">
+  <div class="bg-red-700 fixed top-1/2 top_button">
     <button type="button"
       class="btn_pnl_shower rounded-md bg-sky-500 hover:bg-sky-700 active:bg-sky-700 focus:outline-none focus:ring focus:ring-sky-300 px-5 py-2 text-sm leading-5  font-semibold text-white absolute right-0 top-1/2"
       @click="open = true">
@@ -157,9 +208,11 @@ const selectRow = evt => {
 </template>
 
 <style scoped>
+.top-nav-shadow {
+  filter: drop-shadow(0 0 0.25rem #000);
+}
+
 .top_button {
-  position: fixed;
-  top: 50%;
   right: 0;
 }
 
@@ -169,7 +222,14 @@ const selectRow = evt => {
   border-bottom-right-radius: 0;
 }
 
-.my-colum {}
+.cell-border {
+  border-left: solid #9f9f9f 0.1rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.cell-border:nth-child(1) {
+  border-left: none
+}
 
 pre {
   white-space: pre-wrap;

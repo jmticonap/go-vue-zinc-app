@@ -39,7 +39,7 @@ func main() {
 
 	router.Get("/new_data_v1", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("loading data...")
-		loadNewData(path, auth, int(limit), DataParcer)
+		loadNewData(path, auth, int(limit), DataParser)
 		fmt.Println("data loaded.")
 	})
 
