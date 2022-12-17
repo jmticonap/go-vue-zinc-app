@@ -27,3 +27,5 @@ indexer/indexer
 indexer/profile_*
 vue-web-cli/.eslintrc.json
 vue-web-cli/data/*
+vue-web-cli/src/__test__/__snapshots__
+

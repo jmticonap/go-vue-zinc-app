@@ -6,7 +6,6 @@ const getBody = (term, page) => {
   const currentDate = new Date()
   const dateLess30m = new Date(currentDate - (30 * 60 * 1000))
 
-  console.log("page: ", page)
   if (!page.count)
     throw new Error("The count property must be set")
 

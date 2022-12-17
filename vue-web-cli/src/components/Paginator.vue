@@ -1,58 +1,48 @@
       
 <script setup>
-import { ref } from 'vue'
-import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/vue/20/solid'
-import { useMessager } from '../hooks/useMessager'
+import { ChevronDoubleLeftIcon, ChevronDoubleRightIcon } from '@heroicons/vue/20/solid'
+import { store } from '../store'
 
+const goBackPage = async () => {
+  if (store.currentPage > 1) {
+    store.currentPage--
+    await store.onSearch()
+  }
+}
 
-const { message } = useMessager()
-const total = ref(0)
-const current = ref(1)
+const goForwarePage = async () => {
+  if (store.currentPage * 20 < store.emailsTotal) {
+    store.currentPage++
+    await store.onSearch()
+  }
+}
 
 </script>
 
 <template>
-  <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
-    <div class="flex flex-1 justify-between sm:hidden">
-      <a href="#"
-        class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Previous</a>
-      <a href="#"
-        class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Next</a>
-      </div>
-    <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-center">
-      <h1>{{message}}</h1>
-      <div>
-        <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-          <a href="#"
-            class="relative inline-flex items-center rounded-l-md border border-gray-300 bg-white px-2 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 focus:z-20">
-            <span class="sr-only">Previous</span>
-            <ChevronLeftIcon class="h-5 w-5" aria-hidden="true" />
-          </a>
-          <!-- Current: "z-10 bg-indigo-50 border-indigo-500 text-indigo-600", Default: "bg-white border-gray-300 text-gray-500 hover:bg-gray-50" -->
-          <a href="#" aria-current="page"
-            class="relative z-10 inline-flex items-center border border-indigo-500 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-600 focus:z-20">1</a>
-          <a href="#"
-            class="relative inline-flex items-center border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 focus:z-20">2</a>
-          <a href="#"
-            class="relative hidden items-center border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 focus:z-20 md:inline-flex">3</a>
-          <span
-            class="relative inline-flex items-center border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700">...</span>
-          <a href="#"
-            class="relative hidden items-center border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 focus:z-20 md:inline-flex">8</a>
-          <a href="#"
-            class="relative inline-flex items-center border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 focus:z-20">9</a>
-          <a href="#"
-            class="relative inline-flex items-center border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 focus:z-20">10</a>
-          <a href="#"
-            class="relative inline-flex items-center rounded-r-md border border-gray-300 bg-white px-2 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 focus:z-20">
-            <span class="sr-only">Next</span>
-            <ChevronRightIcon class="h-5 w-5" aria-hidden="true" />
-          </a>
-        </nav>
-      </div>
-    </div>
+  <div class="flex flex-row p-4 justify-center">
+    <ul class="flex flex-row gap-4">
+      <li>
+        <button @click="goBackPage"
+          class="rounded-md bg-sky-500 hover:bg-sky-700 active:bg-sky-700 focus:outline-none focus:ring focus:ring-sky-300 px-5 py-2 text-sm leading-5  font-semibold text-white">
+          <ChevronDoubleLeftIcon class="h-6 w-6" aria-hidden="true" />
+        </button>
+      </li>
+      <li>
+        <h2>
+          {{ store.currentPage }} / {{ Math.ceil(store.emailsTotal / 20) }}
+        </h2>
+      </li>
+      <li>
+        <button @click="goForwarePage"
+          class="rounded-md bg-sky-500 hover:bg-sky-700 active:bg-sky-700 focus:outline-none focus:ring focus:ring-sky-300 px-5 py-2 text-sm leading-5  font-semibold text-white">
+          <ChevronDoubleRightIcon class="h-6 w-6" aria-hidden="true" />
+        </button>
+      </li>
+    </ul>
   </div>
 </template>
 
 <style scoped>
+
 </style>
