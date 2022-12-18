@@ -132,22 +132,17 @@ func DataParserV2(base_path string, limit int) string {
 }
 
 func DataRegexParser(str string) (map[string]string, error) {
+	str = strings.Replace(str, "\r\n\r\n", "\n\n", 1)
 	result := make(map[string]string)
 	mailParts := strings.Split(str, "\n\n")
 	header := mailParts[0]
 	content := strings.Join(mailParts[1:], "\n\n")
 
-	var re_key = regexp.MustCompile(`(?m)^(Message-ID:|Date:|From:|To:|Subject:|Mime-Version:|Content-Type:|Content-Transfer-Encoding:|X-From:|X-To:|X-cc:|X-bcc:|X-Folder:|X-Origin:|X-FileName:)`)
+	var re_key = regexp.MustCompile(`(?m)^(Message-ID:|Date:|From:|To:|Subject:|Cc:|Mime-Version:|Content-Type:|Content-Transfer-Encoding:|Bcc:|X-From:|X-To:|X-cc:|X-bcc:|X-Folder:|X-Origin:|X-FileName:)`)
 	var keys = re_key.FindAllString(header, -1)
 
 	var re_value = regexp.MustCompile(`(?m): .*$`)
 	var values = re_value.FindAllString(header, -1)
-	// for _, key := range keys {
-	// 	header = strings.Replace(header, key, "%@%", 1)
-	// }
-	// header = strings.ReplaceAll(header, "\n", " ")
-
-	// var values = strings.Split(header, "%@%")[1:]
 
 	if len(keys) != len(values) {
 		return nil, errors.New("problems with keys and values")
