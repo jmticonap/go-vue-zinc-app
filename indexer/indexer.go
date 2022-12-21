@@ -2,14 +2,14 @@ package main
 
 import (
 	"flag"
-	"fmt"
+	"jmtp/indexer/parsers"
+	"jmtp/indexer/routers"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 )
 
 func main() {
@@ -25,34 +25,19 @@ func main() {
 	flag.Parse()
 
 	if newData {
-		loadNewData(path, auth, int(limit), DataParserV2)
+		parsers.LoadNewData(path, auth, int(limit), parsers.DataParserV2)
 	}
 
 	port := os.Getenv("PORT")
 
 	router := chi.NewRouter()
 
-	router.Use(middleware.Logger)
-	router.Use(middleware.Recoverer)
-
-	router.Mount("/debug", middleware.Profiler())
-
-	router.Get("/new_data_v1", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("loading data...")
-		loadNewData(path, auth, int(limit), DataParser)
-		fmt.Println("data loaded.")
-	})
-
-	router.Get("/new_data_v2", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("loading data...")
-		loadNewData(path, auth, int(limit), DataParserV2)
-		fmt.Println("data loaded.")
-	})
+	routers.RootRoute(router, path, auth, int(limit))
 
 	if port == "" {
 		port = "8081"
 	}
-	log.Printf("Server is running\n\thttp://localhost:%s/debug", port)
 
+	log.Printf("Server is running\n\thttp://localhost:%s/debug", port)
 	log.Fatal(http.ListenAndServe(":"+port, router))
 }

@@ -1,6 +1,7 @@
-package main
+package test
 
 import (
+	"jmtp/indexer/parsers"
 	"log"
 	"os"
 	"testing"
@@ -37,7 +38,7 @@ Looking out for you bubbeh:
 John`
 
 func TestParser_v2(t *testing.T) {
-	data, _ := DataRegexParser(email_data)
+	data, _ := parsers.DataRegexParser(email_data)
 
 	t.Run("DataRegexParcer content should read correctly", func(t *testing.T) {
 		expect_data := `Jeff:
@@ -57,22 +58,24 @@ John`
 
 	t.Run("read the quantity by limit parameter", func(t *testing.T) {
 		path, _ := os.Getwd()
+		path += "/.."
 		limit := 600
 		base_path := path + "/test_db"
-		readed_files := ListFiles(base_path, limit)
+		readed_files := parsers.ListFiles(base_path, limit)
 
 		assert.Equal(t, limit, len(readed_files))
 	})
 
 	t.Run("all have [15, 16, 17, 18] fields", func(t *testing.T) {
 		path, _ := os.Getwd()
+		path += "/.."
 		limit := 600
 		base_path := path + "/test_db"
-		readed_files := ListFiles(base_path, limit)
+		readed_files := parsers.ListFiles(base_path, limit)
 
 		for _, file := range readed_files {
 			str, _ := os.ReadFile(file)
-			lst, err := DataRegexParser(string(str))
+			lst, err := parsers.DataRegexParser(string(str))
 
 			if err != nil {
 				log.Fatal(err, file)
@@ -82,5 +85,4 @@ John`
 			assert.Contains(t, vals, len(lst))
 		}
 	})
-
 }
