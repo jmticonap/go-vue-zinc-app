@@ -7,17 +7,22 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"jmtp/indexer/commons"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
+
+	"github.com/fatih/color"
 )
 
 func ListFiles(path string, limit int) []string {
 	var result []string
 	filepath.WalkDir(path, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			log.Fatal(err)
+		}
 		if !d.IsDir() {
 			result = append(result, path)
 			limit--
@@ -45,7 +50,7 @@ func Check_error(err error) bool {
 	return err != nil
 }
 
-func Check_fatal(err error) bool {
+func CheckFatal(err error) bool {
 	return err != nil
 }
 
@@ -57,14 +62,11 @@ func GetListFiles(dir_path string) []fs.DirEntry {
 
 func GetEmailFileString(path string) string {
 	content, err := os.ReadFile(path)
-	Check_fatal(err)
+	CheckFatal(err)
 	return string(content)
 }
 
 func Send(method, url, body, auth string) (*http.Response, error) {
-	client := &http.Client{
-		Timeout: time.Second * 10,
-	}
 	req, err := http.NewRequest(method, url, bytes.NewBufferString(body))
 	if err != nil {
 		return nil, fmt.Errorf("got error %s", err.Error())
@@ -72,11 +74,11 @@ func Send(method, url, body, auth string) (*http.Response, error) {
 	req.Header.Set("user-agent", "golang application")
 	req.Header.Add("Authorization", "Basic "+b64.StdEncoding.EncodeToString([]byte(auth)))
 
-	response, err := client.Do(req)
+	response, err := commons.HttpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("got error %s", err.Error())
 	}
-	//defer response.Body.Close()
+
 	return response, nil
 }
 
@@ -104,5 +106,48 @@ func LoadNewData(path, auth string, limit int, parser ParserFunc) {
 			bodyString := string(bodyBytes)
 			log.Println(bodyString)
 		}
+	}
+}
+
+func LoadBulk(body string) {
+	resp, err := Send(http.MethodPost, os.Getenv("ZINC_SEARCH_HOST")+"/api/_bulk", body, commons.Auth)
+
+	if err != nil {
+		redF := color.New(color.FgRed).SprintFunc()
+		redB := color.New(color.Bold, color.BgRed).SprintFunc()
+		log.Fatalf("%s %s\n", redB(" ERROR "), redF(err.Error()))
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+		bodyString := string(bodyBytes)
+		log.Println(bodyString)
+	}
+}
+
+func LoadBulkV2(body *strings.Builder) {
+	resp, err := Send(http.MethodPost, os.Getenv("ZINC_SEARCH_HOST")+"/api/_bulk", body.String(), commons.Auth)
+
+	if err != nil {
+		redF := color.New(color.FgRed).SprintFunc()
+		redB := color.New(color.Bold, color.BgRed).SprintFunc()
+		log.Fatalf("%s %s\n", redB(" ERROR "), redF(err.Error()))
+	}
+
+	defer resp.Body.Close()
+	defer body.Reset()
+
+	if resp.StatusCode == http.StatusOK {
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+		bodyString := string(bodyBytes)
+		log.Println(bodyString)
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"jmtp/indexer/parsers"
 	"net/http"
 	_ "net/http/pprof"
+	"sync"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -16,15 +17,19 @@ func RootRoute(r *chi.Mux, path, auth string, limit int) {
 
 	r.Mount("/debug", middleware.Profiler())
 
-	r.Get("/new_data_v1", func(w http.ResponseWriter, r *http.Request) {
+	r.Get("/load_db", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("loading data...")
-		parsers.LoadNewData(path, auth, int(limit), parsers.DataParserV1)
+		parsers.DataLoader()
 		fmt.Println("data loaded.")
 	})
+	r.Get("/load_db_cnt", func(w http.ResponseWriter, r *http.Request) {
+		wg := &sync.WaitGroup{}
+		wg.Add(3)
+		go parsers.ReadMails(wg)
+		go parsers.ParseMails(wg)
+		go parsers.SendMail(wg)
 
-	r.Get("/new_data_v2", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("loading data...")
-		parsers.LoadNewData(path, auth, int(limit), parsers.DataParserV2)
-		fmt.Println("data loaded.")
+		wg.Wait()
+		w.Write([]byte("--DONE--"))
 	})
 }
