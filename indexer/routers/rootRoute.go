@@ -24,11 +24,10 @@ func RootRoute(r *chi.Mux, path, auth string, limit int) {
 	})
 	r.Get("/load_db_cnt", func(w http.ResponseWriter, r *http.Request) {
 		wg := &sync.WaitGroup{}
-		wg.Add(3)
+		wg.Add(2)
 		go parsers.ReadMails(wg)
-		go parsers.ParseMails(wg)
-		go parsers.SendMail(wg)
-
+		go parsers.ParseMails(wg, w)
+		// go parsers.SendMail(wg)
 		wg.Wait()
 		w.Write([]byte("--DONE--"))
 	})

@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io/fs"
 	"jmtp/indexer/commons"
+
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -17,30 +19,29 @@ import (
 	"github.com/fatih/color"
 )
 
+var yellow = color.New(color.Bold, color.BgHiWhite).SprintFunc()
 var (
-	chnMailContent chan string            = make(chan string)
-	chnMailStruct  chan map[string]string = make(chan map[string]string)
-	readingMails   bool                   = true
-	countMails     int                    = 0
-	strBulk        strings.Builder        = strings.Builder{}
+	chnMailContent chan string            = make(chan string, 10_000)
+	chnMailStruct  chan map[string]string = make(chan map[string]string, 10_000)
+	// readingMails     bool                   = false
+	// parsingMails     bool                   = false
+	noReadFilesCount int             = 0
+	countMails       int             = 0
+	strBulk          strings.Builder = strings.Builder{}
 )
 
 func ReadMails(wg *sync.WaitGroup) {
 	err := filepath.WalkDir(commons.DbPath, func(path string, d fs.DirEntry, err error) error {
 		if !d.IsDir() {
 			content, err := os.ReadFile(path)
-			if err != nil {
-				return err
+			if err == nil { // if is error pass the next file
+				chnMailContent <- string(content)
+				countMails += 1
 			}
-
-			chnMailContent <- string(content)
-			countMails += 1
 		}
-
 		return nil
 	})
 	wg.Done()
-	readingMails = false
 	if err != nil {
 		red := color.New(color.Bold, color.BgRed).SprintFunc()
 		fmt.Printf("%s\n", red(" Mails reads: ERROR "))
@@ -50,15 +51,17 @@ func ReadMails(wg *sync.WaitGroup) {
 	}
 }
 
-func ParseMails(wg *sync.WaitGroup) {
+func ParseMails(wg *sync.WaitGroup, w http.ResponseWriter) {
 	parsed := 1
-	for readingMails || parsed <= countMails {
-		mailContent, ok := <-chnMailContent
-		if ok {
-			mail, _ := DataRegexParser(mailContent)
-			chnMailStruct <- mail
-
-			parsed += 1
+	for parsed <= commons.FilesQuantity-noReadFilesCount {
+		if len(chnMailContent) > 0 {
+			mailContent, ok := <-chnMailContent
+			if ok {
+				mail, _ := DataRegexParser(mailContent)
+				chnMailStruct <- mail
+				parsed += 1
+				// fmt.Printf("%v/%v\n", parsed, commons.FilesQuantity-noReadFilesCount)
+			}
 		}
 	}
 	wg.Done()
@@ -66,28 +69,29 @@ func ParseMails(wg *sync.WaitGroup) {
 	fmt.Printf("%s\n", green(" Mails parsing: COMPLETE "))
 }
 
-func SendMail(wg *sync.WaitGroup) {
-	mailAdded := 1
+func SendMail() {
+	addedMailCount := 0
 	indexBulkSend := 0
-	for readingMails || mailAdded <= countMails {
-		mail, ok := <-chnMailStruct
-		if ok {
-			jsonStr, _ := json.Marshal(mail)
-			strBulk.WriteString(`{ "index" : { "_index" : "mails" } }` + "\n" + string(jsonStr) + "\n")
-			if len(strBulk.String()) >= 100_000_000 || mailAdded == countMails {
-				// yellow := color.New(color.Bold, color.BgYellow).SprintFunc()
-				// fmt.Printf("%s\n", yellow(fmt.Sprintf("%v - Bulk block: COMPLETE (%v/%v))", indexBulkSend, mailAdded, countMails)))
-				indexBulkSend += 1
-				// strBulk.Reset()
-				LoadBulkV2(&strBulk) //Sending information to Zinc Search
+	for {
+		if len(chnMailStruct) > 0 {
+			mail, ok := <-chnMailStruct
+			if ok {
+				jsonStr, _ := json.Marshal(mail)
+				strBulk.WriteString(`{ "index" : { "_index" : "mails" } }` + "\n" + string(jsonStr) + "\n")
+				if len(strBulk.String()) >= 100_000_000 || addedMailCount == (commons.FilesQuantity-noReadFilesCount-1) {
+					LoadBulkV2(&strBulk) //Sending information to Zinc Search
+					indexBulkSend += 1
+					fmt.Printf("%s\n", yellow(fmt.Sprintf("%v - Bulk block: COMPLETE (%v/%v))", indexBulkSend, addedMailCount, commons.FilesQuantity-noReadFilesCount)))
+				}
+				addedMailCount += 1
 			}
-			mailAdded += 1
+		}
+		if len(chnMailStruct) == 0 && addedMailCount == (commons.FilesQuantity-noReadFilesCount) {
+			green := color.New(color.Bold, color.BgGreen).SprintFunc()
+			fmt.Printf("%s\n", green(" Mails sending: COMPLETE "))
+			addedMailCount = 0
 		}
 	}
-
-	wg.Done()
-	green := color.New(color.Bold, color.BgGreen).SprintFunc()
-	fmt.Printf("%s\n", green(" Mails sending: COMPLETE "))
 }
 
 func DataLoader() {

@@ -11,3 +11,4 @@ var Limit, MaxSizeBatch int64
 var DbPath, Auth string
 var NewData bool
 var MailInfo []fs.FileInfo
+var FilesQuantity int
